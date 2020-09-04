@@ -1,0 +1,65 @@
+diff --git a/src/quipper/kernel/perf_event.h b/src/quipper/kernel/perf_event.h
+index 209ffa1..0ba58f4 100644
+--- a/src/quipper/kernel/perf_event.h
++++ b/src/quipper/kernel/perf_event.h
+@@ -816,6 +816,10 @@ enum perf_event_type {
+    */
+   PERF_RECORD_NAMESPACES = 16,
+ 
++  /* Unsupported */
++  PERF_RECORD_KSYMBOL = 17,
++  PERF_RECORD_BPF_EVENT = 18,
++
+   PERF_RECORD_MAX, /* non-ABI */
+ };
+ 
+diff --git a/src/quipper/kernel/perf_internals.h b/src/quipper/kernel/perf_internals.h
+index dedb5c3..59b6257 100644
+--- a/src/quipper/kernel/perf_internals.h
++++ b/src/quipper/kernel/perf_internals.h
+@@ -340,7 +340,8 @@ enum perf_user_event_type {
+   PERF_RECORD_EVENT_UPDATE = 78,
+   PERF_RECORD_TIME_CONV = 79,
+   PERF_RECORD_HEADER_FEATURE = 80,
+-  PERF_RECORD_HEADER_MAX = 81,
++  PERF_RECORD_COMPRESSED = 81,
++  PERF_RECORD_HEADER_MAX = 82,
+ };
+ 
+ enum auxtrace_error_type {
+diff --git a/src/quipper/perf_parser.cc b/src/quipper/perf_parser.cc
+index 7c8410d..08da4cb 100644
+--- a/src/quipper/perf_parser.cc
++++ b/src/quipper/perf_parser.cc
+@@ -128,14 +128,22 @@ bool PerfParser::ParseRawEvents() {
+ bool PerfParser::ProcessUserEvents(PerfEvent& event) {
+   // New user events from PERF-4.13 is not yet supported
+   switch (event.header().type()) {
++    case PERF_RECORD_HEADER_EVENT_TYPE:
++    case PERF_RECORD_HEADER_TRACING_DATA:
++    case PERF_RECORD_HEADER_BUILD_ID:
++    case PERF_RECORD_ID_INDEX:
+     case PERF_RECORD_AUXTRACE_INFO:
+     case PERF_RECORD_AUXTRACE:
+     case PERF_RECORD_AUXTRACE_ERROR:
+     case PERF_RECORD_THREAD_MAP:
++    case PERF_RECORD_CPU_MAP:
+     case PERF_RECORD_STAT_CONFIG:
+     case PERF_RECORD_STAT:
+     case PERF_RECORD_STAT_ROUND:
++    case PERF_RECORD_EVENT_UPDATE:
+     case PERF_RECORD_TIME_CONV:
++    case PERF_RECORD_HEADER_FEATURE:
++    case PERF_RECORD_COMPRESSED:
+       VLOG(1) << "Parsed event: " << GetEventName(event.header().type())
+               << ". Doing nothing.";
+       break;
+@@ -252,6 +260,8 @@ bool PerfParser::ProcessEvents() {
+       case PERF_RECORD_SWITCH:
+       case PERF_RECORD_SWITCH_CPU_WIDE:
+       case PERF_RECORD_NAMESPACES:
++      case PERF_RECORD_KSYMBOL:
++      case PERF_RECORD_BPF_EVENT:
+         VLOG(1) << "Parsed event type: " << GetEventName(event.header().type())
+                 << ". Doing nothing.";
+         break;
